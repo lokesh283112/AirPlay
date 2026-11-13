@@ -1,0 +1,1369 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AirPlay | Hologram Controller</title>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+
+body{
+    min-height:100vh;
+    background:radial-gradient(ellipse at top,#10243d,#050914 65%);
+    color:#eafaff;
+    font-family:Arial,sans-serif;
+    padding:25px;
+}
+
+.container{max-width:1100px;margin:auto}
+header{text-align:center;margin-bottom:25px}
+
+header h1{
+    color:#00eaff;
+    font-size:38px;
+    letter-spacing:5px;
+    text-shadow:0 0 18px #00d9ff;
+}
+
+header p{color:#91b8c8;margin-top:8px}
+
+.dashboard{
+    display:grid;
+    grid-template-columns:1.5fr 1fr;
+    gap:20px;
+}
+
+.panel{
+    background:rgba(9,25,43,.88);
+    border:1px solid #087c9b;
+    border-radius:16px;
+    padding:18px;
+    box-shadow:0 0 20px rgba(0,220,255,.10);
+}
+
+.panel h2{color:#00eaff;font-size:18px;margin-bottom:15px}
+
+.camera-area{
+    position:relative;
+    width:100%;
+    aspect-ratio:4/3;
+    background:#020812;
+    border:1px solid #00bfe8;
+    border-radius:12px;
+    overflow:hidden;
+}
+
+video,canvas{
+    position:absolute;
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    transform:scaleX(-1);
+}
+
+video{opacity:.45}
+canvas{z-index:2}
+
+.camera-message{
+    position:absolute;
+    z-index:3;
+    inset:0;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    color:#7eafc0;
+    pointer-events:none;
+    text-align:center;
+}
+
+.status{
+    margin-top:14px;
+    padding:12px;
+    background:#071522;
+    border-radius:8px;
+    color:#9bbdca;
+    font-size:14px;
+}
+
+.status span{color:#00eaff;font-weight:bold}
+
+.gesture-box{
+    margin-top:14px;
+    padding:15px;
+    background:#061522;
+    border:1px solid #07516a;
+    border-radius:10px;
+}
+
+.gesture-box small{color:#86aab9}
+.gesture-box h3{color:#00eaff;margin-top:7px;font-size:22px}
+
+.controls{display:flex;gap:10px;margin-top:15px}
+
+button{
+    flex:1;
+    padding:13px;
+    border:none;
+    border-radius:8px;
+    font-size:15px;
+    font-weight:bold;
+    cursor:pointer;
+}
+
+#startBtn{background:#00d9ef;color:#00131c}
+#stopBtn{background:#263e50;color:white}
+button:disabled{opacity:.45;cursor:not-allowed}
+
+.mapping{display:flex;flex-direction:column;gap:11px}
+
+.mapping-item{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+    padding:12px;
+    background:#071522;
+    border-radius:8px;
+    border-left:3px solid #00cce8;
+    font-size:14px;
+}
+
+.mapping-item span:first-child{color:#d9f6ff}
+.mapping-item span:last-child{color:#00eaff;text-align:right}
+
+.note{
+    color:#87aab9;
+    font-size:13px;
+    line-height:1.6;
+    margin-top:15px;
+}
+
+#sensitivitySlider{
+    width:100%;
+    margin-top:15px;
+    accent-color:#00eaff;
+    cursor:pointer;
+}
+
+.sensitivity-labels{
+    display:flex;
+    justify-content:space-between;
+    color:#87aab9;
+    font-size:12px;
+    margin-top:8px;
+}
+
+.mapping-editor {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.mapping-editor label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    color: #d9f6ff;
+    font-size: 14px;
+}
+
+.key-input {
+    width: 100px;
+    padding: 9px;
+    border: 1px solid #087c9b;
+    border-radius: 7px;
+    background: #020812;
+    color: #00eaff;
+    text-align: center;
+    font-weight: bold;
+    outline: none;
+}
+
+.key-input:focus {
+    border-color: #00eaff;
+    box-shadow: 0 0 8px #00eaff55;
+}
+
+.mapping-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 8px;
+}
+
+.mapping-buttons button {
+    font-size: 12px;
+    padding: 11px 6px;
+}
+
+#saveMappingBtn {
+    background: #00d9ef;
+    color: #00131c;
+}
+
+#resetMappingBtn {
+    background: #263e50;
+    color: white;
+}
+
+#mappingMessage {
+    min-height: 20px;
+}
+
+@media(max-width:750px){
+    .dashboard{grid-template-columns:1fr}
+    header h1{font-size:29px}
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<header>
+    <h1>AIRPLAY</h1>
+    <p>AI Hand Gesture Game Controller</p>
+</header>
+
+<div class="dashboard">
+
+<section class="panel">
+
+    <h2>HOLOGRAM HAND DETECTION</h2>
+
+    <div class="camera-area">
+        <video id="video" autoplay playsinline muted></video>
+        <canvas id="canvas"></canvas>
+
+        <div class="camera-message" id="cameraMessage">
+            Click START CAMERA to begin
+        </div>
+    </div>
+
+    <div class="status">
+        Camera: <span id="cameraStatus">OFFLINE</span>
+        <br><br>
+        Python Bridge: <span id="bridgeStatus">CHECKING...</span>
+        <br><br>
+Processing FPS: <span id="fpsStatus">0</span>
+    </div>
+
+    <div class="gesture-box">
+        <small>CURRENT GESTURE</small>
+        <h3 id="gestureStatus">READY</h3>
+    </div>
+
+    <!-- SENSITIVITY CONTROL -->
+
+    <div class="gesture-box">
+
+        <small>GESTURE SENSITIVITY</small>
+
+        <h3>
+            <span id="sensitivityValue">5</span>/10
+        </h3>
+
+        <input
+            type="range"
+            id="sensitivitySlider"
+            min="1"
+            max="10"
+            value="5"
+        >
+
+        <div class="sensitivity-labels">
+            <span>More stable</span>
+            <span>More sensitive</span>
+        </div>
+
+        <p class="note">
+            Adjust how quickly AirPlay recognizes your gestures.
+            Default setting: 5.
+        </p>
+
+    </div>
+
+    <div class="controls">
+        <button id="startBtn">START CAMERA</button>
+        <button id="stopBtn" disabled>STOP</button>
+    </div>
+
+</section>
+
+<section class="panel">
+
+    <h2>GESTURE MAPPING</h2>
+
+    <div class="mapping">
+
+        <div class="mapping-item">
+            <span>Left Open Palm 🖐️</span>
+            <span>MOVE LEFT</span>
+        </div>
+
+        <div class="mapping-item">
+            <span>Right Open Palm 🖐️</span>
+            <span>MOVE RIGHT</span>
+        </div>
+
+        <div class="mapping-item">
+            <span>Left Two Fingers ✌️</span>
+            <span>JUMP</span>
+        </div>
+
+        <div class="mapping-item">
+            <span>Right Two Fingers ✌️</span>
+            <span>ATTACK</span>
+        </div>
+
+        <div class="mapping-item">
+            <span>Right Thumb + Index</span>
+            <span>SPECIAL SKILL</span>
+        </div>
+
+        <div class="mapping-item">
+            <span>Left Thumb + Index</span>
+            <span>WOOD HIDDEN SKILL</span>
+        </div>
+
+        <div class="mapping-item">
+            <span>Both Closed Fists ✊</span>
+            <span>PAUSE</span>
+        </div>
+
+        <div class="mapping-item">
+            <span>Left ✌️ + Right 🖐️</span>
+            <span>JUMP + MOVE RIGHT</span>
+        </div>
+
+    </div>
+
+    <p class="note">
+        Keep your hands inside the camera frame.
+        Gestures must remain stable before activation.
+    </p>
+
+<hr style="border-color:#07516a;margin:22px 0">
+
+<h2 style="color:#00eaff;font-size:18px;margin-bottom:15px">
+    CUSTOM KEYBOARD MAPPING
+</h2>
+
+<div class="mapping-editor">
+
+    <label>Move Left
+        <input class="key-input" id="key_MOVE_LEFT" value="A" maxlength="10">
+    </label>
+
+    <label>Move Right
+        <input class="key-input" id="key_MOVE_RIGHT" value="D" maxlength="10">
+    </label>
+
+    <label>Jump
+        <input class="key-input" id="key_JUMP" value="SPACE" maxlength="10">
+    </label>
+
+    <label>Attack
+        <input class="key-input" id="key_ATTACK" value="L" maxlength="10">
+    </label>
+
+    <label>Special Skill
+        <input class="key-input" id="key_SPECIAL_ACTION" value="K" maxlength="10">
+    </label>
+
+    <label>Wood Hidden Skill
+        <input class="key-input" id="key_WOOD_HIDDEN_SKILL" value="J" maxlength="10">
+    </label>
+
+    <label>Pause
+        <input class="key-input" id="key_PAUSE" value="M" maxlength="10">
+    </label>
+
+    <div class="mapping-buttons">
+        <button type="button" id="saveMappingBtn">SAVE MAPPING</button>
+        <button type="button" id="resetMappingBtn">RESET DEFAULT</button>
+    </div>
+
+    <p id="mappingMessage" class="note">
+        Change your keys and click SAVE MAPPING.
+    </p>
+
+</div>
+
+
+</section>
+
+</div>
+</div>
+
+<script type="module">
+
+import {
+    FilesetResolver,
+    HandLandmarker
+} from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
+
+const video = document.getElementById("video");
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+const startBtn = document.getElementById("startBtn");
+const stopBtn = document.getElementById("stopBtn");
+
+const cameraStatus = document.getElementById("cameraStatus");
+const bridgeStatus = document.getElementById("bridgeStatus");
+const fpsStatus = document.getElementById("fpsStatus");
+
+let fpsFrames = 0;
+let fpsStartTime = performance.now();
+const gestureStatus = document.getElementById("gestureStatus");
+const cameraMessage = document.getElementById("cameraMessage");
+
+const sensitivitySlider =
+    document.getElementById("sensitivitySlider");
+
+const sensitivityValue =
+    document.getElementById("sensitivityValue");
+
+const BRIDGE_URL = "http://127.0.0.1:5000/gesture";
+
+
+// ---------------- CUSTOM KEYBOARD MAPPING ----------------
+
+const DEFAULT_KEY_MAPPING = {
+    MOVE_LEFT: "A",
+    MOVE_RIGHT: "D",
+    JUMP: "SPACE",
+    ATTACK: "L",
+    SPECIAL_ACTION: "K",
+    WOOD_HIDDEN_SKILL: "J",
+    PAUSE: "M"
+};
+
+const ALLOWED_SPECIAL_KEYS = [
+    "SPACE", "ENTER", "SHIFT", "CTRL",
+    "ALT", "TAB", "ESC", "UP", "DOWN",
+    "LEFT", "RIGHT"
+];
+
+let keyMapping = {...DEFAULT_KEY_MAPPING};
+
+function isValidKey(value) {
+    return /^[A-Z0-9]$/.test(value) ||
+           ALLOWED_SPECIAL_KEYS.includes(value);
+}
+
+function applyMappingToInputs() {
+    for (const action in DEFAULT_KEY_MAPPING) {
+        document.getElementById("key_" + action).value =
+            keyMapping[action];
+    }
+}
+
+function loadSavedMapping() {
+    try {
+        const saved = JSON.parse(
+            localStorage.getItem("airplayKeyMapping")
+        );
+
+        if (saved && typeof saved === "object") {
+            for (const action in DEFAULT_KEY_MAPPING) {
+                const value = String(saved[action] || "")
+                    .trim().toUpperCase();
+
+                if (isValidKey(value)) {
+                    keyMapping[action] = value;
+                }
+            }
+        }
+    } catch (error) {
+        console.warn("Could not load saved mapping:", error);
+    }
+
+    applyMappingToInputs();
+}
+
+function saveCustomMapping() {
+    const newMapping = {};
+
+    for (const action in DEFAULT_KEY_MAPPING) {
+        const input = document.getElementById("key_" + action);
+        const value = input.value.trim().toUpperCase();
+
+        if (!isValidKey(value)) {
+            document.getElementById("mappingMessage").textContent =
+                "Invalid key for " + action +
+                ". Use A-Z, 0-9 or supported special keys.";
+
+            return;
+        }
+
+        newMapping[action] = value;
+    }
+
+    keyMapping = newMapping;
+
+    try {
+        localStorage.setItem(
+            "airplayKeyMapping",
+            JSON.stringify(keyMapping)
+        );
+    } catch (error) {
+        console.error("Could not save mapping:", error);
+
+        document.getElementById("mappingMessage").textContent =
+            "Could not save mapping in this browser.";
+
+        return;
+    }
+
+    // Release any currently held movement keys.
+    lastActionSignature = null;
+    queueGestures(["READY"]);
+
+    document.getElementById("mappingMessage").textContent =
+        "Mapping saved successfully!";
+
+    gestureStatus.textContent = "MAPPING SAVED";
+}
+
+function resetCustomMapping() {
+    keyMapping = {...DEFAULT_KEY_MAPPING};
+
+    applyMappingToInputs();
+
+    try {
+        localStorage.removeItem("airplayKeyMapping");
+    } catch (error) {
+        console.warn("Could not reset saved mapping:", error);
+    }
+
+    lastActionSignature = null;
+    queueGestures(["READY"]);
+
+    document.getElementById("mappingMessage").textContent =
+        "Default mapping restored!";
+}
+
+document.getElementById("saveMappingBtn")
+    .addEventListener("click", saveCustomMapping);
+
+document.getElementById("resetMappingBtn")
+    .addEventListener("click", resetCustomMapping);
+
+loadSavedMapping();
+
+let handLandmarker = null;
+let cameraStream = null;
+let running = false;
+let lastVideoTime = -1;
+const TARGET_PROCESS_INTERVAL = 33;
+let lastProcessTime = 0;
+
+let lastActionSignature = null;
+let lastMovementSent = 0;
+const ACTION_COOLDOWN = 350;
+let lastActionTime = 0;
+
+let requestInProgress = false;
+let pendingGestures = null;
+
+// ---------------- SENSITIVITY SETTINGS ----------------
+
+let REQUIRED_STABLE_FRAMES = 6;
+let TOUCH_RATIO = 0.23;
+
+function updateSensitivity(level) {
+
+    sensitivityValue.textContent = level;
+
+    // Level 1 = 10 frames.
+    // Level 5 = 6 frames.
+    // Level 10 = 4 frames.
+
+    REQUIRED_STABLE_FRAMES =
+        Math.round(11 - (level * 0.7));
+
+    // Adjust thumb-index touch threshold.
+
+    TOUCH_RATIO =
+        0.17 + (level * 0.012);
+
+    resetHandStates();
+
+    // Release old actions after changing sensitivity.
+    lastActionSignature = null;
+
+    if(running) {
+        queueGestures(["READY"]);
+        gestureStatus.textContent = "CALIBRATING";
+    }
+}
+
+sensitivitySlider.addEventListener("input", () => {
+
+    updateSensitivity(
+        Number(sensitivitySlider.value)
+    );
+
+});
+
+// ---------------- HAND STABILITY ----------------
+
+const REQUIRED_CLEAR_FRAMES = 2;
+
+const handStates = {
+    LEFT: {
+        candidate: null,
+        count: 0,
+        stable: null,
+        noneCount: 0
+    },
+
+    RIGHT: {
+        candidate: null,
+        count: 0,
+        stable: null,
+        noneCount: 0
+    }
+};
+
+function resetHandStates() {
+
+    for(const side of ["LEFT","RIGHT"]) {
+
+        handStates[side] = {
+            candidate: null,
+            count: 0,
+            stable: null,
+            noneCount: 0
+        };
+
+    }
+
+}
+
+// ---------------- PYTHON BRIDGE ----------------
+
+async function sendGesturesToPython(gestures) {
+
+    try {
+
+        const response = await fetch(BRIDGE_URL, {
+            method: "POST",
+
+            headers: {
+                "Content-Type":"application/json"
+            },
+
+           body: JSON.stringify({
+    gestures,
+    keyMapping
+})
+        });
+
+        if(!response.ok) {
+            throw new Error("Bridge response error");
+        }
+
+        bridgeStatus.textContent = "CONNECTED";
+        bridgeStatus.style.color = "#00ff99";
+
+    } catch(error) {
+
+        console.error("Bridge error:",error);
+
+        bridgeStatus.textContent = "DISCONNECTED";
+        bridgeStatus.style.color = "#ff5252";
+
+    }
+
+}
+
+function queueGestures(gestures) {
+
+    pendingGestures = [...gestures];
+
+    if(requestInProgress) return;
+
+    requestInProgress = true;
+
+    (async () => {
+
+        while(pendingGestures !== null) {
+
+            const next = pendingGestures;
+
+            pendingGestures = null;
+
+            await sendGesturesToPython(next);
+
+        }
+
+        requestInProgress = false;
+
+    })();
+
+}
+
+function checkBridge() {
+    queueGestures(["READY"]);
+}
+
+// ---------------- MEDIAPIPE SETUP ----------------
+
+async function setupHandLandmarker() {
+
+    const vision = await FilesetResolver.forVisionTasks(
+        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+    );
+
+    handLandmarker =
+        await HandLandmarker.createFromOptions(
+            vision,
+            {
+                baseOptions: {
+
+                    modelAssetPath:
+                        "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+
+                    delegate:"GPU"
+                },
+
+                runningMode:"VIDEO",
+
+                numHands:2,
+
+                minHandDetectionConfidence:0.75,
+                minHandPresenceConfidence:0.75,
+                minTrackingConfidence:0.75
+            }
+        );
+
+}
+
+// ---------------- HAND HELPERS ----------------
+
+function distance(a,b) {
+    return Math.hypot(a.x-b.x,a.y-b.y);
+}
+
+function fingerExtended(lm,tip,pip) {
+
+    return lm[tip].y < lm[pip].y - 0.015;
+
+}
+
+function detectOpenPalm(lm) {
+
+    return fingerExtended(lm,8,6) &&
+           fingerExtended(lm,12,10) &&
+           fingerExtended(lm,16,14) &&
+           fingerExtended(lm,20,18);
+
+}
+
+function detectTwoFingers(lm) {
+
+    return fingerExtended(lm,8,6) &&
+           fingerExtended(lm,12,10) &&
+           !fingerExtended(lm,16,14) &&
+           !fingerExtended(lm,20,18);
+
+}
+
+function detectFist(lm) {
+
+    return !fingerExtended(lm,8,6) &&
+           !fingerExtended(lm,12,10) &&
+           !fingerExtended(lm,16,14) &&
+           !fingerExtended(lm,20,18);
+
+}
+
+function detectThumbIndexTouch(lm) {
+
+    const handSize = distance(lm[0],lm[9]);
+
+    const touchDistance = distance(lm[4],lm[8]);
+
+    return handSize > 0.001 &&
+           touchDistance < handSize * TOUCH_RATIO;
+
+}
+
+function getPhysicalHand(results,index) {
+
+    const label =
+        results.handedness?.[index]?.[0]?.categoryName;
+
+    if(label === "Left") return "LEFT";
+
+    if(label === "Right") return "RIGHT";
+
+    return "UNKNOWN";
+
+}
+
+// ---------------- CLASSIFY HAND ----------------
+
+function classifyHand(lm) {
+
+    if(detectThumbIndexTouch(lm)) {
+        return "THUMB_TOUCH";
+    }
+
+    if(detectTwoFingers(lm)) {
+        return "TWO_FINGERS";
+    }
+
+    if(detectOpenPalm(lm)) {
+        return "OPEN_PALM";
+    }
+
+    if(detectFist(lm)) {
+        return "FIST";
+    }
+
+    return null;
+
+}
+
+// ---------------- STABLE GESTURE FILTER ----------------
+
+function updateStableHand(side,rawAction,present) {
+
+    const state = handStates[side];
+
+    if(!present) {
+
+        state.candidate = null;
+        state.count = 0;
+        state.stable = null;
+        state.noneCount = 0;
+
+        return null;
+
+    }
+
+    if(rawAction === null) {
+
+        state.noneCount++;
+
+        state.candidate = null;
+        state.count = 0;
+
+        if(state.noneCount >= REQUIRED_CLEAR_FRAMES) {
+            state.stable = null;
+        }
+
+        return state.stable;
+
+    }
+
+    state.noneCount = 0;
+
+    if(state.candidate === rawAction) {
+
+        state.count++;
+
+    } else {
+
+        state.candidate = rawAction;
+        state.count = 1;
+
+    }
+
+    if(
+        state.stable !== null &&
+        state.stable !== rawAction &&
+        state.count >= REQUIRED_CLEAR_FRAMES
+    ) {
+
+        state.stable = null;
+
+    }
+
+    if(state.count >= REQUIRED_STABLE_FRAMES) {
+
+        state.stable = rawAction;
+
+    }
+
+    return state.stable;
+
+}
+
+// ---------------- HOLOGRAM DRAWING ----------------
+
+const connections = [
+
+    [0,1],[1,2],[2,3],[3,4],
+
+    [0,5],[5,6],[6,7],[7,8],
+
+    [5,9],[9,10],[10,11],[11,12],
+
+    [9,13],[13,14],[14,15],[15,16],
+
+    [13,17],[17,18],[18,19],[19,20],
+
+    [0,17]
+
+];
+
+function drawHologram(lm) {
+
+    ctx.lineWidth = 3;
+
+    ctx.strokeStyle = "#00eaff";
+
+    ctx.shadowColor = "#00eaff";
+
+    ctx.shadowBlur = 14;
+
+    for(const [a,b] of connections) {
+
+        ctx.beginPath();
+
+        ctx.moveTo(
+            lm[a].x*canvas.width,
+            lm[a].y*canvas.height
+        );
+
+        ctx.lineTo(
+            lm[b].x*canvas.width,
+            lm[b].y*canvas.height
+        );
+
+        ctx.stroke();
+
+    }
+
+    for(let i=0;i<lm.length;i++) {
+
+        const x = lm[i].x*canvas.width;
+        const y = lm[i].y*canvas.height;
+
+        ctx.beginPath();
+
+        ctx.arc(
+            x,
+            y,
+            i%4===0?6:4,
+            0,
+            Math.PI*2
+        );
+
+        ctx.fillStyle = "#b7fbff";
+
+        ctx.fill();
+
+    }
+
+    ctx.shadowBlur = 0;
+
+}
+
+// ---------------- ACTION CONTROL ----------------
+
+function setActions(actions) {
+
+    actions = [...new Set(actions)];
+
+    if(actions.includes("PAUSE")) {
+        actions = ["PAUSE"];
+    }
+
+    gestureStatus.textContent = actions.length
+        ? actions.map(a=>a.replaceAll("_"," ")).join(" + ")
+        : "READY";
+
+    const signature = [...actions].sort().join("|");
+
+    const now = Date.now();
+
+   if(signature !== lastActionSignature) {
+
+    const hasMovement = actions.some(a =>
+        a === "MOVE_LEFT" || a === "MOVE_RIGHT"
+    );
+
+    const hasNonMovement = actions.some(a =>
+        a !== "MOVE_LEFT" && a !== "MOVE_RIGHT"
+    );
+
+    const now = Date.now();
+
+    if (
+        hasNonMovement &&
+        now - lastActionTime < ACTION_COOLDOWN
+    ) {
+        return;
+    }
+
+    lastActionSignature = signature;
+
+    if (hasNonMovement) {
+        lastActionTime = now;
+    }
+
+    queueGestures(
+        actions.length ? actions : ["READY"]
+    );
+
+        if(actions.some(a=>
+            a==="MOVE_LEFT" || a==="MOVE_RIGHT"
+        )) {
+
+            lastMovementSent = now;
+
+        }
+
+        return;
+
+    }
+
+    const movementActions = actions.filter(a=>
+        a==="MOVE_LEFT" || a==="MOVE_RIGHT"
+    );
+
+    if(
+        movementActions.length &&
+        now-lastMovementSent >= 180
+    ) {
+
+        lastMovementSent = now;
+
+        queueGestures(movementActions);
+
+    }
+
+}
+
+// ---------------- GESTURE DETECTION ----------------
+
+function detectHands(results) {
+
+    const hands = {
+        LEFT:null,
+        RIGHT:null
+    };
+
+    if(results.landmarks) {
+
+        for(let i=0;i<results.landmarks.length;i++) {
+
+            const label = getPhysicalHand(results,i);
+
+            if(label==="LEFT" || label==="RIGHT") {
+
+                hands[label] = results.landmarks[i];
+
+            }
+
+        }
+
+    }
+
+    const leftHand = hands.LEFT;
+    const rightHand = hands.RIGHT;
+
+    const leftRaw = leftHand
+        ? classifyHand(leftHand)
+        : null;
+
+    const rightRaw = rightHand
+        ? classifyHand(rightHand)
+        : null;
+
+    const leftStable = updateStableHand(
+        "LEFT",
+        leftRaw,
+        !!leftHand
+    );
+
+    const rightStable = updateStableHand(
+        "RIGHT",
+        rightRaw,
+        !!rightHand
+    );
+
+    // BOTH FISTS = PAUSE
+
+    if(
+        leftStable === "FIST" &&
+        rightStable === "FIST"
+    ) {
+
+        setActions(["PAUSE"]);
+
+        return;
+
+    }
+
+    const actions = [];
+
+    // LEFT HAND
+
+    if(leftStable === "THUMB_TOUCH") {
+
+        actions.push("WOOD_HIDDEN_SKILL");
+
+    }
+
+    else if(leftStable === "TWO_FINGERS") {
+
+        actions.push("JUMP");
+
+    }
+
+    else if(leftStable === "OPEN_PALM") {
+
+        actions.push("MOVE_LEFT");
+
+    }
+
+    // RIGHT HAND
+
+    if(rightStable === "THUMB_TOUCH") {
+
+        actions.push("SPECIAL_ACTION");
+
+    }
+
+    else if(rightStable === "TWO_FINGERS") {
+
+        actions.push("ATTACK");
+
+    }
+
+    else if(rightStable === "OPEN_PALM") {
+
+        actions.push("MOVE_RIGHT");
+
+    }
+
+    setActions(actions);
+
+}
+
+// ---------------- CAMERA LOOP ----------------
+
+
+function renderLoop() {
+
+    if (!running) return;
+
+    const currentTime = performance.now();
+
+    if (
+        video.readyState >= 2 &&
+        video.currentTime !== lastVideoTime &&
+        currentTime - lastProcessTime >= TARGET_PROCESS_INTERVAL
+    ) {
+
+        lastVideoTime = video.currentTime;
+        lastProcessTime = currentTime;
+
+        const width = video.videoWidth;
+        const height = video.videoHeight;
+
+        if (
+            canvas.width !== width ||
+            canvas.height !== height
+        ) {
+            canvas.width = width;
+            canvas.height = height;
+        }
+
+        ctx.clearRect(
+            0,
+            0,
+            canvas.width,
+            canvas.height
+        );
+
+        const results = handLandmarker.detectForVideo(
+            video,
+            currentTime
+        );
+
+        if (results.landmarks) {
+            for (const lm of results.landmarks) {
+                drawHologram(lm);
+            }
+        }
+
+        detectHands(results);
+
+        fpsFrames++;
+
+        if (currentTime - fpsStartTime >= 1000) {
+            fpsStatus.textContent = fpsFrames;
+
+            fpsFrames = 0;
+            fpsStartTime = currentTime;
+        }
+    }
+
+    requestAnimationFrame(renderLoop);
+}
+
+
+// ---------------- START CAMERA ----------------
+
+async function startAirPlay() {
+
+    startBtn.disabled = true;
+
+    cameraMessage.textContent =
+        "Loading hand detection...";
+
+    try {
+
+        if(!handLandmarker) {
+
+            await setupHandLandmarker();
+
+        }
+
+        
+cameraStream =
+    await navigator.mediaDevices.getUserMedia({
+
+        video: {
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            frameRate: { ideal: 30, max: 30 },
+            facingMode: "user"
+        },
+
+        audio: false
+
+    });
+
+
+        video.srcObject = cameraStream;
+
+        await new Promise(resolve=>{
+
+            video.onloadedmetadata = resolve;
+
+        });
+
+        await video.play();
+
+        resetHandStates();
+
+        running = true;
+
+        lastVideoTime = -1;
+        lastProcessTime = 0;
+        fpsFrames = 0;
+fpsStartTime = performance.now();
+fpsStatus.textContent = "0";
+
+        lastActionSignature = null;
+
+        lastMovementSent = 0;
+
+        cameraStatus.textContent = "ONLINE";
+
+        cameraStatus.style.color = "#00ff99";
+
+        cameraMessage.style.display = "none";
+
+        startBtn.disabled = true;
+
+        stopBtn.disabled = false;
+
+        checkBridge();
+
+        renderLoop();
+
+    } catch(error) {
+
+        console.error(error);
+
+        cameraStatus.textContent = "ERROR";
+
+        cameraStatus.style.color = "#ff5252";
+
+        cameraMessage.style.display = "flex";
+
+        cameraMessage.textContent =
+            "Camera or model error. Check permissions and internet.";
+
+        startBtn.disabled = false;
+
+    }
+
+}
+
+// ---------------- STOP CAMERA ----------------
+
+function stopAirPlay() {
+
+    running = false;
+
+    if(cameraStream) {
+
+        cameraStream.getTracks().forEach(
+            track=>track.stop()
+        );
+
+        cameraStream = null;
+
+    }
+
+    video.srcObject = null;
+
+    ctx.clearRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+    resetHandStates();
+
+    lastActionSignature = null;
+
+    queueGestures(["READY"]);
+
+    cameraStatus.textContent = "OFFLINE";
+
+    cameraStatus.style.color = "#ff5252";
+
+    gestureStatus.textContent = "READY";
+
+    cameraMessage.style.display = "flex";
+
+    cameraMessage.textContent = "Camera stopped";
+
+    startBtn.disabled = false;
+
+    stopBtn.disabled = true;
+
+}
+
+// ---------------- BUTTON EVENTS ----------------
+
+startBtn.addEventListener("click",startAirPlay);
+
+stopBtn.addEventListener("click",stopAirPlay);
+
+// INITIAL SETTINGS
+
+updateSensitivity(5);
+
+checkBridge();
+
+</script>
+
+</body>
+</html>

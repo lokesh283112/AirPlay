@@ -1,0 +1,7 @@
+
+AirPlay_Backup/
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
